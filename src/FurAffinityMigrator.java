@@ -17,7 +17,8 @@ public class FurAffinityMigrator extends JFrame{
     private JLabel oldAccountUsernameLabel;
     private JLabel newAccountUsernameLabel;
     private JLabel newAccountPasswordLabel;
-    private JProgressBar progressBar;
+    private JProgressBar logProgressBar;
+
 
     // Constructor method for creating the form
     public FurAffinityMigrator(String title){
@@ -31,13 +32,16 @@ public class FurAffinityMigrator extends JFrame{
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
 
+                // Enabling the progress bar on button click
+                logProgressBar.setEnabled(true);
+
                 // Initialising and populating the user object
                 FA_User mUser = new FA_User(oldAccountText.getText(), newAccountUsernameText.getText(), newAccountPasswordText.getText());
 
                 // Exporting watchlist
-                mUser.exportList(progressBar);
+                mUser.exportList(logProgressBar);
 
-                // User assisted new account login (becuase of captchas)
+                // User assisted new account login (because of CAPTCHAS)
                 mUser.login();
 
                 // Importing watchlist into new account
@@ -112,14 +116,20 @@ class FA_User {
                     if (driver.findElement(By.xpath(xpathString)).isDisplayed()){
                         watchList.add(driver.findElement(By.xpath(xpathString)).getText());
 
-                        // TODO - Get progress bar to work
-                        progressBar.setValue(followerCountProgress / numberFollowers);
+                        /* TODO - Get progress bar to work
+
+                        // Progressbar
+                        int progressPercentage = (followerCountProgress / numberFollowers ) * 100;
+                        String progressString = ("Exporting [" + followerCountProgress + "/" + numberFollowers + "] - " + driver.findElement(By.xpath(xpathString)).getText());
+
+                        progressBar.setValue(progressPercentage);
+                        progressBar.setString(progressString);
+                        */
 
                     }
                 }
             }
         }
-
 
         // Wont need later, remember to remove
         driver.quit();
