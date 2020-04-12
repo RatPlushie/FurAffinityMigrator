@@ -17,8 +17,6 @@ public class FurAffinityMigrator extends JFrame{
     private JLabel oldAccountUsernameLabel;
     private JLabel newAccountUsernameLabel;
     private JLabel newAccountPasswordLabel;
-    private JProgressBar logProgressBar;
-
 
     // Constructor method for creating the form
     public FurAffinityMigrator(String title){
@@ -32,20 +30,26 @@ public class FurAffinityMigrator extends JFrame{
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
 
-                // Enabling the progress bar on button click
-                logProgressBar.setEnabled(true);
-
                 // Initialising and populating the user object
                 FA_User mUser = new FA_User(oldAccountText.getText(), newAccountUsernameText.getText(), newAccountPasswordText.getText());
 
                 // Exporting watchlist
-                mUser.exportList(logProgressBar);
+                mUser.exportList();
 
                 // User assisted new account login (because of CAPTCHAS)
                 mUser.login();
 
                 // Importing watchlist into new account
                 mUser.importList();
+
+                // Navigating the user to the login page for the new account
+                // TODO - nav user to login page
+                mUser.login();
+
+                // TODO - Change button to "i have logged in 'ok'". Wait for user to press "ok"
+
+
+                // TODO - with user logged in, now follow every account in the list
             }
         });
     }
@@ -63,9 +67,6 @@ class FA_User {
     String          oldUsername;
     String          newUsername;
     String          newPassword;
-    int             numberFollowers;
-    int             followerPageCount;
-    int             followerCountProgress;
     List<String> watchList = new ArrayList<>();
 
     FA_User(String oldName, String newName, String newPassword){
@@ -76,63 +77,66 @@ class FA_User {
         newPassword = newPassword;
     }
 
-    void exportList(JProgressBar progressBar){
+    void exportList(){
         // Initialising WebDriver
         WebDriver driver = new FirefoxDriver();
 
-        // Navigating to old account page to retrieve info
-        String userPageURL = "http://www.furaffinity.net/user/" + oldUsername + "/";
-        driver.get(userPageURL);
+        // Navigating to the old accounts watchlist
+        String watchlistURL = "https://www.furaffinity.net/watchlist/by/" + oldUsername + "/";
+        driver.get(watchlistURL);
 
-        // TODO - Add invalid username error handling
+        boolean exportFinished = false;
+        int positionCount = 1;
 
-        // Maximising the internet window for better visibility
-        driver.manage().window().maximize();
+        // Loop to export all currently displayed usernames
+        while (!exportFinished){
 
-        // Finding out how many people the user is following
-        numberFollowers = Integer.parseInt(driver.findElement(By.xpath("/html/body/div[2]/div[2]/div[3]/div/div[1]/div/section[4]/div/div[2]/span")).getText());
+            try{
 
-        // Calculating how many pages of followers there are
-        followerPageCount = numberFollowers / 200;
+                // Creating the xpath string to find the username at the current position
+                String currentXPath = "/html/body/div/section/div[2]/div[" + positionCount + "]/a";
 
-        // Export progress counter
-        followerCountProgress = 0;
+                // Retrieving the username and adding it to the list
+                watchList.add(driver.findElement(By.xpath(currentXPath)).getText());
 
-        // Integrating through the page(s) and recording all present artists
-        for (int i = 1; i <= followerPageCount + 1; i++){
+                // Printing system log
+                System.out.println("Username Added: " + driver.findElement(By.xpath(currentXPath)).getText());
 
-            // Navigating to user's watchlist
-            String userWatchListURL = "http://www.furaffinity.net/watchlist/by/" + oldUsername + "/" + i + "/";
-            driver.get(userWatchListURL);
+                // Incrementing the position count
+                positionCount++;
 
-            // Iterating through the current page of watched accounts
-            for (int y = 1; y <= 200; y++){
-                if (followerCountProgress == numberFollowers){ // Once all watched accounts have been listed - End ForLoop
-                    break;
 
-                } else {
-                    // Finding the next artist and adding them to the watchlist
-                    String xpathString = "/html/body/div/section/div[2]/div[" + y + "]/a";
-                    if (driver.findElement(By.xpath(xpathString)).isDisplayed()){
-                        watchList.add(driver.findElement(By.xpath(xpathString)).getText());
+            } catch (Exception noUserNames){
 
-                        /* TODO - Get progress bar to work
+                try {
 
-                        // Progressbar
-                        int progressPercentage = (followerCountProgress / numberFollowers ) * 100;
-                        String progressString = ("Exporting [" + followerCountProgress + "/" + numberFollowers + "] - " + driver.findElement(By.xpath(xpathString)).getText());
+                    // Saving the current url of the webpage for comparison
+                    String currentUrl = driver.getCurrentUrl();
 
-                        progressBar.setValue(progressPercentage);
-                        progressBar.setString(progressString);
-                        */
+                    // Trying to navigate to the next page
+                    driver.findElement(By.xpath("/html/body/div/section/div[3]/div[2]/form/button")).click();
+
+                    // Comparing the URLs to see if the page hasn't changed
+                    if (currentUrl.equals(driver.getCurrentUrl())){
+
+                        throw new Exception("noPagesLeft");
 
                     }
+
+                    // Resetting the postion counter for the usernames
+                    positionCount = 1;
+
+                } catch (Exception noPagesLeft){
+
+                    // Printing out the export results
+                    System.out.println("Finished Exporting");
+                    System.out.println("Total watchlist size: " + watchList.size());
+
+                    // Ending the while-loop
+                    exportFinished = true;
                 }
             }
         }
-
-        // Wont need later, remember to remove
-        driver.quit();
     }
 
     void login(){
