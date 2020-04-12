@@ -17,6 +17,7 @@ public class FurAffinityMigrator extends JFrame{
     private JLabel oldAccountUsernameLabel;
     private JLabel newAccountUsernameLabel;
     private JLabel newAccountPasswordLabel;
+    private JLabel taskField;
 
     // Constructor method for creating the form
     public FurAffinityMigrator(String title){
@@ -37,19 +38,11 @@ public class FurAffinityMigrator extends JFrame{
                 mUser.exportList();
 
                 // User assisted new account login (because of CAPTCHAS)
-                mUser.login();
+                mUser.login(taskField);
 
                 // Importing watchlist into new account
                 mUser.importList();
 
-                // Navigating the user to the login page for the new account
-                // TODO - nav user to login page
-                mUser.login();
-
-                // TODO - Change button to "i have logged in 'ok'". Wait for user to press "ok"
-
-
-                // TODO - with user logged in, now follow every account in the list
             }
         });
     }
@@ -67,19 +60,21 @@ class FA_User {
     String          oldUsername;
     String          newUsername;
     String          newPassword;
-    List<String> watchList = new ArrayList<>();
+    List<String>    watchList;
+    WebDriver       driver;
 
     FA_User(String oldName, String newName, String newPassword){
 
         // Populating the object with info from the JFrame
-        oldUsername = oldName;
-        newUsername = newName;
-        newPassword = newPassword;
+        this.oldUsername = oldName;
+        this.newUsername = newName;
+        this.newPassword = newPassword;
+
+        this.watchList   = new ArrayList<>();
+        this.driver      = new FirefoxDriver();
     }
 
     void exportList(){
-        // Initialising WebDriver
-        WebDriver driver = new FirefoxDriver();
 
         // Navigating to the old accounts watchlist
         String watchlistURL = "https://www.furaffinity.net/watchlist/by/" + oldUsername + "/";
@@ -97,10 +92,11 @@ class FA_User {
                 String currentXPath = "/html/body/div/section/div[2]/div[" + positionCount + "]/a";
 
                 // Retrieving the username and adding it to the list
-                watchList.add(driver.findElement(By.xpath(currentXPath)).getText());
+                String currentUserName = driver.findElement(By.xpath(currentXPath)).getText();
+                watchList.add(currentUserName);
 
                 // Printing system log
-                System.out.println("Username Added: " + driver.findElement(By.xpath(currentXPath)).getText());
+                System.out.println("Username Added: " + currentUserName);
 
                 // Incrementing the position count
                 positionCount++;
@@ -139,8 +135,26 @@ class FA_User {
         }
     }
 
-    void login(){
-        // TODO - Add User login logic
+    void login(JLabel hintLabel){
+
+        // Navigating to the login page
+        driver.get("https://www.furaffinity.net/login");
+
+        // Inputting the new account user details
+        driver.findElement(By.xpath("//*[@id=\"login\"]")).sendKeys(newUsername);
+        driver.findElement(By.xpath("/html/body/div[2]/div[2]/form/div/section[1]/div[2]/input[2]")).sendKeys(newPassword);
+
+        // Displaying to the user to defeat the captcha
+        hintLabel.setText("Defeat the CAPTCHA and press login");
+
+
+        // TODO - hold an infinite loop until the user presses "login"
+        boolean loggedIn = false;
+        while (!loggedIn){
+
+            // TODO - logic to detect the user has logged in
+        }
+
     }
 
     void importList(){
