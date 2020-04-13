@@ -16,6 +16,9 @@ public class FurAffinityMigrator extends JFrame{
     private JTextField newAccountPasswordText;
     private JButton migrateButton;
     private JLabel taskField;
+    private JLabel oldAccountUsernameLabel;
+    private JLabel newAccountUsernameLabel;
+    private JLabel newAccountPasswordLabel;
 
     // Constructor method for creating the form
     public FurAffinityMigrator(String title){
