@@ -7,6 +7,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class FurAffinityMigrator extends JFrame{
     private JPanel mainPanel;
@@ -14,10 +15,7 @@ public class FurAffinityMigrator extends JFrame{
     private JTextField newAccountUsernameText;
     private JTextField newAccountPasswordText;
     private JButton migrateButton;
-    private JLabel oldAccountUsernameLabel;
-    private JLabel newAccountUsernameLabel;
-    private JLabel newAccountPasswordLabel;
-    private JProgressBar progressBar;
+    private JLabel taskField;
 
     // Constructor method for creating the form
     public FurAffinityMigrator(String title){
@@ -34,14 +32,21 @@ public class FurAffinityMigrator extends JFrame{
                 // Initialising and populating the user object
                 FA_User mUser = new FA_User(oldAccountText.getText(), newAccountUsernameText.getText(), newAccountPasswordText.getText());
 
-                // Exporting watchlist
-                mUser.exportList(progressBar);
+                // Displaying hint to user - DOESN'T UPDATE, SOMETHING ABOUT BEING TOO FAST
+                taskField.setText("Exporting old account's watch list, Please wait...");
 
-                // User assisted new account login (becuase of captchas)
-                mUser.login();
+                // Exporting watchlist
+                mUser.exportList();
+
+                // User assisted new account login (because of CAPTCHAS)
+                mUser.login(taskField);
 
                 // Importing watchlist into new account
                 mUser.importList();
+
+                // Displaying that the activity has been completed
+                taskField.setText("Account has been migrated");
+                System.out.println("Account has been migrated");
             }
         });
     }
@@ -59,77 +64,142 @@ class FA_User {
     String          oldUsername;
     String          newUsername;
     String          newPassword;
-    int             numberFollowers;
-    int             followerPageCount;
-    int             followerCountProgress;
-    List<String> watchList = new ArrayList<>();
+    List<String>    watchList;
+    WebDriver       driver;
 
     FA_User(String oldName, String newName, String newPassword){
 
         // Populating the object with info from the JFrame
-        oldUsername = oldName;
-        newUsername = newName;
-        newPassword = newPassword;
+        this.oldUsername = oldName;
+        this.newUsername = newName;
+        this.newPassword = newPassword;
+
+        this.watchList   = new ArrayList<>();
+        this.driver      = new FirefoxDriver();
     }
 
-    void exportList(JProgressBar progressBar){
-        // Initialising WebDriver
-        WebDriver driver = new FirefoxDriver();
+    void exportList(){
 
-        // Navigating to old account page to retrieve info
-        String userPageURL = "http://www.furaffinity.net/user/" + oldUsername + "/";
-        driver.get(userPageURL);
+        // Navigating to the old accounts watchlist
+        String watchlistURL = "https://www.furaffinity.net/watchlist/by/" + oldUsername + "/";
+        driver.get(watchlistURL);
 
-        // TODO - Add invalid username error handling
+        boolean exportFinished = false;
+        int positionCount = 1;
 
-        // Maximising the internet window for better visibility
-        driver.manage().window().maximize();
+        // Loop to export all currently displayed usernames
+        while (!exportFinished){
 
-        // Finding out how many people the user is following
-        numberFollowers = Integer.parseInt(driver.findElement(By.xpath("/html/body/div[2]/div[2]/div[3]/div/div[1]/div/section[4]/div/div[2]/span")).getText());
+            try{
 
-        // Calculating how many pages of followers there are
-        followerPageCount = numberFollowers / 200;
+                // Creating the xpath string to find the username at the current position
+                String currentXPath = "/html/body/div/section/div[2]/div[" + positionCount + "]/a";
 
-        // Export progress counter
-        followerCountProgress = 0;
+                // Retrieving the username and adding it to the list
+                String currentUserName = driver.findElement(By.xpath(currentXPath)).getText();
+                watchList.add(currentUserName);
 
-        // Integrating through the page(s) and recording all present artists
-        for (int i = 1; i <= followerPageCount + 1; i++){
+                // Printing system log
+                System.out.println("Username Added: " + currentUserName);
 
-            // Navigating to user's watchlist
-            String userWatchListURL = "http://www.furaffinity.net/watchlist/by/" + oldUsername + "/" + i + "/";
-            driver.get(userWatchListURL);
+                // Incrementing the position count
+                positionCount++;
 
-            // Iterating through the current page of watched accounts
-            for (int y = 1; y <= 200; y++){
-                if (followerCountProgress == numberFollowers){ // Once all watched accounts have been listed - End ForLoop
-                    break;
 
-                } else {
-                    // Finding the next artist and adding them to the watchlist
-                    String xpathString = "/html/body/div/section/div[2]/div[" + y + "]/a";
-                    if (driver.findElement(By.xpath(xpathString)).isDisplayed()){
-                        watchList.add(driver.findElement(By.xpath(xpathString)).getText());
+            } catch (Exception noUserNames){
 
-                        // TODO - Get progress bar to work
-                        progressBar.setValue(followerCountProgress / numberFollowers);
+                try {
+
+                    // Saving the current url of the webpage for comparison
+                    String currentUrl = driver.getCurrentUrl();
+
+                    // Trying to navigate to the next page
+                    driver.findElement(By.xpath("/html/body/div/section/div[3]/div[2]/form/button")).click();
+
+                    // Comparing the URLs to see if the page hasn't changed
+                    if (currentUrl.equals(driver.getCurrentUrl())){
+
+                        throw new Exception("noPagesLeft");
 
                     }
+
+                    // Resetting the postion counter for the usernames
+                    positionCount = 1;
+
+                } catch (Exception noPagesLeft){
+
+                    // Printing out the export results
+                    System.out.println("Finished Exporting");
+                    System.out.println("Total watchlist size: " + watchList.size());
+
+                    // Ending the while-loop
+                    exportFinished = true;
                 }
             }
         }
-
-
-        // Wont need later, remember to remove
-        driver.quit();
     }
 
-    void login(){
-        // TODO - Add User login logic
+    void login(JLabel hintLabel){
+
+        // Navigating to the login page
+        driver.get("https://www.furaffinity.net/login");
+
+        // Inputting the new account user details
+        driver.findElement(By.xpath("//*[@id=\"login\"]")).sendKeys(newUsername);
+        driver.findElement(By.xpath("/html/body/div[2]/div[2]/form/div/section[1]/div[2]/input[2]")).sendKeys(newPassword);
+
+        // Displaying to the user to defeat the captcha
+        hintLabel.setText("Defeat the CAPTCHA and press login");
+
+        // While-loop to hold program till the user has logged in
+        boolean loggedIn = false;
+        while (!loggedIn){
+
+            // Testing to see if the user has successfully logged in
+            if (driver.getCurrentUrl().equals("https://www.furaffinity.net/")){
+
+                loggedIn = true;
+
+                // Waiting 2s before trying again to not overload the driver
+                driver.manage().timeouts().implicitlyWait(2, TimeUnit.SECONDS);
+            }
+        }
+
+        // Printing to terminal the user has successfully logged in to their new account
+        System.out.println("User has successfully logged in");
     }
 
     void importList(){
-        // TODO - Add watchlist import logic
+
+        /*
+        Test account
+        Username: test11111111
+        Password: pikachu94
+        */
+
+        // For every entry in the watchList, now add that artist to the new account's list
+        for (String currentArtist : watchList){
+
+            // Creating the URL to navigate to
+            String currentURL = "https://www.furaffinity.net/user/" + currentArtist + "/";
+            driver.get(currentURL);
+
+            driver.findElement(By.xpath("/html/body/div[3]/div[2]/div[1]/div[1]/div[2]/div/div[3]/div/a[1]/div")).click();
+
+            // Waiting until the request has been sent
+            boolean reqSent = false;
+            while (!reqSent){
+
+                if (!driver.getCurrentUrl().equals(currentURL)){
+                    reqSent = true;
+                }
+
+                // Waiting out the web page load
+                driver.manage().timeouts().implicitlyWait(5, TimeUnit.SECONDS);
+            }
+
+            // Displaying in the log which artist has been imported
+            System.out.println("Imported " + currentArtist);
+        }
     }
 }
