@@ -20,6 +20,20 @@ public class FurAffinityMigrator extends JFrame{
     private JLabel newAccountUsernameLabel;
     private JLabel newAccountPasswordLabel;
 
+    /*
+    To the people at FurAffinity, that will neither answer my support questions or my requests - This bot is neither intended to hurt
+    the website or you. Any actions caused by this program outside of its intended function are purely unintentional.
+
+    I have asked for features to be added, like being able to change the username, and I have asked for an 'export watchlist' functionality
+    to no avail. I leave my code as always FOSS, for the clarity it provides; and possibly the inspiration for you to add the
+    feature yourself to the website. Feel free to talk to me if you would like further information, or some help in actually adding much requested
+    functionality to your website.
+
+
+    To anyone who wishes to adapt my program, go right ahead, play with it, mould it, make it exactly what you need. For if you need something
+    enough, there will always be the amazing people like you who can make it happen.
+    */
+
     // Constructor method for creating the form
     public FurAffinityMigrator(String title){
         super(title);
@@ -36,13 +50,16 @@ public class FurAffinityMigrator extends JFrame{
                 FA_User mUser = new FA_User(oldAccountText.getText(), newAccountUsernameText.getText(), newAccountPasswordText.getText());
 
                 // Displaying hint to user - DOESN'T UPDATE, SOMETHING ABOUT BEING TOO FAST
-                taskField.setText("Exporting old account's watch list, Please wait...");
+                taskField.setText("Exporting old account's watch list, please wait...");
 
                 // Exporting watchlist
                 mUser.exportList();
 
                 // User assisted new account login (because of CAPTCHAS)
                 mUser.login(taskField);
+
+                // Displaying to the user that the import process has begun
+                taskField.setText("Watchlist now importing, please be very patient...");
 
                 // Importing watchlist into new account
                 mUser.importList();
@@ -180,29 +197,62 @@ class FA_User {
         Password: pikachu94
         */
 
+        // Import Counter
+        int i = 0;
+
+        // The list of lost users
+        List<String> UsersNotFoundList = new ArrayList<>();
+
         // For every entry in the watchList, now add that artist to the new account's list
         for (String currentArtist : watchList){
 
-            // Creating the URL to navigate to
-            String currentURL = "https://www.furaffinity.net/user/" + currentArtist + "/";
-            driver.get(currentURL);
+          try {
+              // Creating the URL to navigate to
+              String currentURL = "https://www.furaffinity.net/user/" + currentArtist + "/";
+              driver.get(currentURL);
 
-            driver.findElement(By.xpath("/html/body/div[3]/div[2]/div[1]/div[1]/div[2]/div/div[3]/div/a[1]/div")).click();
+              driver.findElement(By.xpath("/html/body/div[3]/div[2]/div[1]/div[1]/div[2]/div/div[3]/div/a[1]/div")).click();
 
-            // Waiting until the request has been sent
-            boolean reqSent = false;
-            while (!reqSent){
+              // Waiting until the request has been sent
+              boolean reqSent = false;
+              while (!reqSent){
 
-                if (!driver.getCurrentUrl().equals(currentURL)){
-                    reqSent = true;
-                }
+                  if (!driver.getCurrentUrl().equals(currentURL)){
+                      reqSent = true;
+                  }
 
-                // Waiting out the web page load
-                driver.manage().timeouts().implicitlyWait(5, TimeUnit.SECONDS);
-            }
+                  // Waiting out the web page load
+                  driver.manage().timeouts().implicitlyWait(5, TimeUnit.SECONDS);
+              }
 
-            // Displaying in the log which artist has been imported
-            System.out.println("Imported " + currentArtist);
+              // Incrementing the total important counter
+              i++;
+
+              // Displaying in the log which artist has been imported
+              System.out.println("[" + i + "/" + watchList.size() + "] Imported: " + currentArtist);
+
+          } catch (Exception UserNotFound){ // Catch method for when a watched artist is either banned, deleted, or not found
+
+              // Adding the artist that couldn't be found to the lost list
+              UsersNotFoundList.add(currentArtist);
+
+              // Printing out that the current artist cannot be found on the sight. Most likely, deleted.
+              System.out.println(currentArtist + " Cannot be found, No longer exists");
+          }
+        }
+
+        // printing out the total number of imports
+        System.out.println("Total Imported: " + i);
+
+        // Printing out the comparison total
+        System.out.println("Import/Export: " + i + ":" + watchList.size());
+
+        System.out.println();
+        System.out.println("List of those not imported:");
+
+        // Printing out the users that are not imported
+        for (String s : UsersNotFoundList){
+            System.out.println("User not found: " + s);
         }
     }
 }
