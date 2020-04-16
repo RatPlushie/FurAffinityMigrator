@@ -237,7 +237,7 @@ class FA_User {
               UsersNotFoundList.add(currentArtist);
 
               // Printing out that the current artist cannot be found on the sight. Most likely, deleted.
-              System.out.println(currentArtist + " Cannot be found, No longer exists");
+              System.out.println(currentArtist + " Cannot be found");
           }
         }
 
